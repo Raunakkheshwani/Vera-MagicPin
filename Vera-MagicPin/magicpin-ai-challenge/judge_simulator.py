@@ -41,7 +41,7 @@ def _load_env_key() -> str:
 BOT_URL = os.getenv("BOT_URL", "http://localhost:8000")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 LLM_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GROQ_API_KEY", os.getenv("LLM_API_KEY", ""))) or _load_env_key()
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash-lite")
 
 # For Ollama only: local server URL
 OLLAMA_URL = "http://localhost:11434"
@@ -220,7 +220,7 @@ class AnthropicProvider(LLMProvider):
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "gemini-3.5-flash"
+        self.model = model or "gemini-3.5-flash-lite"
 
     def name(self) -> str:
         return f"Gemini ({self.model})"

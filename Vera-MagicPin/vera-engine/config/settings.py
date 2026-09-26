@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     team_name: str = "Team Raunak"
     team_members: list[str] = ["Raunak Kheshwani"]
-    model_name: str = "gemini-3.5-flash"
+    model_name: str = "gemini-3.5-flash-lite"
     approach: str = (
         "Context-to-decision composer: deterministic opportunity ranking and "
         "attention/fatigue suppression choose the action, an evidence-grounded "
