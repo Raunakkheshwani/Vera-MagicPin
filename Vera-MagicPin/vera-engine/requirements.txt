@@ -1,0 +1,19 @@
+# ================================
+# Magicpin Vera AI Challenge
+# Phase 1 — Contract Layer
+# ================================
+
+# API framework
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+
+# Data validation / official context models
+pydantic>=2.7,<3.0
+pydantic-settings>=2.2,<3.0
+
+# Testing
+pytest>=8.0,<9.0
+httpx>=0.27,<1.0
+
+# Environment variables
+python-dotenv>=1.0,<2.0

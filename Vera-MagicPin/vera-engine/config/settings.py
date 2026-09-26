@@ -1,0 +1,23 @@
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore", protected_namespaces=())
+
+    team_name: str = "Team Raunak"
+    team_members: list[str] = ["Raunak Kheshwani"]
+    model_name: str = "llama-3.3-70b-versatile"
+    approach: str = (
+        "Context-to-decision composer: deterministic opportunity ranking and "
+        "attention/fatigue suppression choose the action, an evidence-grounded "
+        "LLM composer only handles wording."
+    )
+    contact_email: str = "raunak@example.com"
+    version: str = "0.1.0"
+
+    # not used yet (later phases) — declared now so .env doesn't need editing twice
+    groq_api_key: str | None = None
+    database_url: str | None = None
+
+
+settings = Settings()
