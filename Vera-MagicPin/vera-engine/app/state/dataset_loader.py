@@ -70,22 +70,22 @@ def load_official_dataset(store: ContextStore, expanded_dir: Path) -> dict:
 
     for f in sorted((expanded_dir / "categories").glob("*.json")):
         data = json.loads(f.read_text())
-        store.push("category", data["slug"], version=1, payload=data)
+        store.push("category", data["slug"], version=0, payload=data)
         counts["category"] += 1
 
     for f in sorted((expanded_dir / "merchants").glob("*.json")):
         data = json.loads(f.read_text())
-        store.push("merchant", data["merchant_id"], version=1, payload=data)
+        store.push("merchant", data["merchant_id"], version=0, payload=data)
         counts["merchant"] += 1
 
     for f in sorted((expanded_dir / "customers").glob("*.json")):
         data = json.loads(f.read_text())
-        store.push("customer", data["customer_id"], version=1, payload=data)
+        store.push("customer", data["customer_id"], version=0, payload=data)
         counts["customer"] += 1
 
     for f in sorted((expanded_dir / "triggers").glob("*.json")):
         data = json.loads(f.read_text())
-        store.push("trigger", data["id"], version=1, payload=data)
+        store.push("trigger", data["id"], version=0, payload=data)
         counts["trigger"] += 1
 
     return counts

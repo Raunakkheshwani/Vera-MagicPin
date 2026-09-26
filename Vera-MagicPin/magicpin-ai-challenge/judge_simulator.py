@@ -21,22 +21,33 @@ Author: magicpin AI Challenge Team
 # =============================================================================
 
 # Your bot's URL (where your bot is running)
-BOT_URL = "http://localhost:8080"
+import os
+from pathlib import Path
 
-# Choose your LLM provider: "openai", "anthropic", "gemini", "deepseek", "groq", "ollama", "openrouter"
-LLM_PROVIDER = "openai"
+def _load_env_key() -> str:
+    env_file = Path(__file__).resolve().parent.parent / "vera-engine" / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            if line.startswith("GEMINI_API_KEY="):
+                val = line.split("=", 1)[1].strip()
+                if val:
+                    return val
+            elif line.startswith("GROQ_API_KEY="):
+                val = line.split("=", 1)[1].strip()
+                if val:
+                    return val
+    return ""
 
-# Your API key (paste your key here)
-LLM_API_KEY = ""  # <-- PUT YOUR API KEY HERE
-
-# Model to use (leave empty for default, or specify like "gpt-4o", "claude-3-5-sonnet-20241022", etc.)
-LLM_MODEL = ""  # <-- Optional: specify model or leave empty for default
+BOT_URL = os.getenv("BOT_URL", "http://localhost:8000")
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
+LLM_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GROQ_API_KEY", os.getenv("LLM_API_KEY", ""))) or _load_env_key()
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash-lite")
 
 # For Ollama only: local server URL
 OLLAMA_URL = "http://localhost:11434"
 
 # Which test to run by default
-TEST_SCENARIO = "all"
+TEST_SCENARIO = "full_evaluation"
 
 # =============================================================================
 # ██████  END OF CONFIGURATION - DON'T EDIT BELOW THIS LINE ██████
@@ -209,7 +220,7 @@ class AnthropicProvider(LLMProvider):
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "gemini-1.5-flash"
+        self.model = model or "gemini-3.5-flash-lite"
 
     def name(self) -> str:
         return f"Gemini ({self.model})"
@@ -256,7 +267,7 @@ class DeepSeekProvider(LLMProvider):
 class GroqProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "llama-3.1-70b-versatile"
+        self.model = model or "llama3-8b-8192"
 
     def name(self) -> str:
         return f"Groq ({self.model})"
@@ -731,7 +742,7 @@ class JudgeSimulator:
             return False
 
         action = data.get("action", "?")
-        body = data.get("body", "")
+        body = data.get("body") or ""
 
         print_info(f"Bot action: {action}")
         if body:

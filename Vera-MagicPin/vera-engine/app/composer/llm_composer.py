@@ -1,26 +1,15 @@
 """
 Evidence-First Composer. The LLM ONLY writes wording — action/CTA/send_as
-are already decided. Falls back to a deterministic template if Groq is
-unset/slow/fails. `evolution_hint` (from message_evolution.py) adjusts
-wording strategy on repeat attempts without changing the decided action.
+are already decided. Supports Gemini and Groq with fallback to a deterministic template.
 """
 
 from __future__ import annotations
 
+import json
 from typing import Any, Dict, List, Optional
+from urllib import request as urlrequest
 
 from config.settings import settings
-
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None and settings.groq_api_key:
-        from groq import Groq
-        _client = Groq(api_key=settings.groq_api_key, timeout=8.0)
-    return _client
-
 
 SYSTEM_PROMPT = """You are Vera's message composer for a merchant engagement WhatsApp bot.
 Rules:
@@ -58,6 +47,40 @@ Action to lead toward: {action_name}"""
     return prompt
 
 
+def _call_gemini(api_key: str, model_name: str, user_prompt: str) -> Optional[str]:
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+        body = json.dumps({
+            "contents": [{"parts": [{"text": full_prompt}]}],
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 300}
+        }).encode("utf-8")
+        req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
+        with urlrequest.urlopen(req, timeout=8.0) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    except Exception:
+        return None
+
+
+def _call_groq(api_key: str, model_name: str, user_prompt: str) -> Optional[str]:
+    try:
+        from groq import Groq
+        client = Groq(api_key=api_key, timeout=8.0)
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user_prompt},
+            ],
+            temperature=0.4,
+            max_tokens=200,
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception:
+        return None
+
+
 def compose_body(
     merchant_name: str,
     category_tone: str,
@@ -68,26 +91,20 @@ def compose_body(
     customer_name: Optional[str] = None,
     evolution_hint: Optional[str] = None,
 ) -> str:
-    client = _get_client()
-    if client is not None:
-        try:
-            resp = client.chat.completions.create(
-                model=settings.model_name,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": _build_user_prompt(
-                        merchant_name, category_tone, taboo_words, action_name,
-                        why_now, evidence, customer_name, evolution_hint
-                    )},
-                ],
-                temperature=0.4,
-                max_tokens=200,
-            )
-            body = resp.choices[0].message.content.strip()
-            if body:
-                return body
-        except Exception:
-            pass
+    user_prompt = _build_user_prompt(
+        merchant_name, category_tone, taboo_words, action_name,
+        why_now, evidence, customer_name, evolution_hint
+    )
+
+    if settings.gemini_api_key:
+        res = _call_gemini(settings.gemini_api_key, settings.model_name, user_prompt)
+        if res:
+            return res
+
+    if settings.groq_api_key:
+        res = _call_groq(settings.groq_api_key, settings.model_name, user_prompt)
+        if res:
+            return res
 
     return _fallback_body(merchant_name, action_name, why_now, customer_name, evolution_hint)
 

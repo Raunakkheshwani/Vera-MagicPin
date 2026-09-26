@@ -179,10 +179,18 @@ async def tick(body: TickRequest) -> TickResponse:
     return TickResponse(actions=actions)
 
 
-STOP_WORDS = ["stop", "unsubscribe", "not interested", "don't message", "no thanks", "remove me"]
-HOSTILE_WORDS = ["scam", "fraud", "harassment", "angry", "sue you", "reported"]
-COMMITMENT_WORDS = ["let's do it", "go ahead", "sounds good", "yes please", "sure, do it", "ok do it"]
-AUTO_REPLY_SIGNS = ["currently unavailable", "will get back to you", "out of office", "auto-reply", "automatic reply"]
+STOP_WORDS = ["stop", "unsubscribe", "not interested", "don't message", "no thanks", "remove me", "useless spam"]
+HOSTILE_WORDS = ["scam", "fraud", "harassment", "angry", "sue you", "reported", "useless spam"]
+COMMITMENT_WORDS = [
+    "let's do it", "lets do it", "go ahead", "sounds good", "yes please",
+    "sure, do it", "ok do it", "do it", "whats next", "what's next", "proceed",
+    "let's proceed", "lets proceed", "sounds great", "let us do it"
+]
+AUTO_REPLY_SIGNS = [
+    "currently unavailable", "will get back to you", "out of office", "auto-reply",
+    "automatic reply", "thank you for contacting us", "will respond shortly",
+    "our team will respond", "automated assistant", "automated reply", "canned reply", "auto reply"
+]
 
 
 def _extract_merchant_and_family_from_conversation(conversation_id: str):

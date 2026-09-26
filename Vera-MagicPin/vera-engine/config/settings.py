@@ -6,7 +6,7 @@ class Settings(BaseSettings):
 
     team_name: str = "Team Raunak"
     team_members: list[str] = ["Raunak Kheshwani"]
-    model_name: str = "llama-3.3-70b-versatile"
+    model_name: str = "llama3-8b-8192"
     approach: str = (
         "Context-to-decision composer: deterministic opportunity ranking and "
         "attention/fatigue suppression choose the action, an evidence-grounded "
@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     contact_email: str = "raunak@example.com"
     version: str = "0.1.0"
 
-    # not used yet (later phases) — declared now so .env doesn't need editing twice
+    llm_provider: str = "gemini"
+    gemini_api_key: str | None = None
     groq_api_key: str | None = None
     database_url: str | None = None
 
