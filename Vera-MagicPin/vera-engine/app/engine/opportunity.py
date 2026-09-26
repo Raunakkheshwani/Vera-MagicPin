@@ -1,8 +1,7 @@
 """
-Opportunity Engine. A trigger is a CANDIDATE signal, not an instruction to
-message. Converts (trigger, category, merchant, customer) into a scored
-Opportunity — including suppression (the IPL rule: no relevant offer means
-no message) and time-based decay (a trigger nearing expiry is worth less).
+Opportunity Engine. Converts (trigger, category, merchant, customer) into a scored
+Opportunity — integrating Category Policy, Evidence Strength, Decay, and
+Counterfactual Loss (avoiding low-value outreach).
 """
 
 from __future__ import annotations
@@ -10,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
+from app.engine.category_policy import evaluate_category_policy
 from app.engine.opportunity_decay import decay_factor
 from app.models.context import CategoryContext, CustomerContext, MerchantContext, TriggerContext
 
@@ -28,6 +28,8 @@ class Opportunity:
     suppress_reason: Optional[str] = None
     bypass_fatigue: bool = False
     suppression_key: str = ""
+    recommended_action: Optional[str] = None
+    recommended_cta: Optional[str] = None
 
     @property
     def score(self) -> float:
@@ -77,6 +79,13 @@ def score_opportunity(
     suppress = False
     suppress_reason = None
     bypass_fatigue = False
+
+    # Evaluate Category-Specific Policy
+    cat_policy = evaluate_category_policy(category, merchant, trigger, customer, family)
+    if not cat_policy.allowed and family != "compliance":
+        suppress = True
+        suppress_reason = cat_policy.reason
+    value *= cat_policy.policy_fit
 
     if family == "performance_dip":
         d = merchant.performance.delta_7d
@@ -133,12 +142,12 @@ def score_opportunity(
             suppress, suppress_reason = True, "external event with no relevant offer to anchor a message to"
         else:
             title = getattr(offer, "title", None)
-            why_now.append(f"external event + relevant offer available: {title}")
+            why_now.append(f"upcoming festival/event seasonal surge, featured promotion: {title}")
             evidence.append({"type": "FACT", "fact": title, "source": "MerchantContext/CategoryContext offer", "confidence": "medium"})
             value = 0.55
 
     elif family == "compliance":
-        why_now.append("compliance/operational item requires attention regardless of fatigue")
+        why_now.append(f"regulatory/listing update required: {trigger.kind}")
         value = 1.0
         bypass_fatigue = True
         payload_summary = str(trigger.payload)[:120]
@@ -157,6 +166,12 @@ def score_opportunity(
         else:
             why_now.append(f"category digest item available: {matching.title}")
             evidence.append({"type": "FACT", "fact": matching.title, "source": matching.source, "confidence": "high"})
+            if matching.source:
+                evidence.append({"type": "FACT", "fact": f"citation_source: {matching.source}", "source": "CategoryContext.digest", "confidence": "high"})
+            if matching.trial_n:
+                evidence.append({"type": "FACT", "fact": f"trial_n: {matching.trial_n} patients", "source": matching.source, "confidence": "high"})
+            if matching.summary:
+                evidence.append({"type": "FACT", "fact": f"digest_summary: {matching.summary}", "source": matching.source, "confidence": "high"})
             value = 0.5
 
     elif family == "renewal":
@@ -172,12 +187,16 @@ def score_opportunity(
         value *= 0.5
         why_now.append("merchant subscription expired — deprioritized")
 
-    # Opportunity Decay — a trigger nearing its expiry is worth less;
-    # past expiry, it's suppressed outright (unless compliance overrides it).
+    # Opportunity Decay & Counterfactual Loss
     decay = decay_factor(trigger.expires_at)
     if decay == 0.0 and not bypass_fatigue:
         suppress, suppress_reason = True, suppress_reason or "trigger has expired (decay reached zero)"
     value = value * decay
+
+    counterfactual_loss = value * decay
+    if counterfactual_loss < 0.1 and family != "compliance" and trigger.urgency < 4:
+        suppress, suppress_reason = True, suppress_reason or "Low counterfactual loss (benefit does not justify interruption cost)"
+
     if decay < 1.0 and decay > 0.0:
         why_now.append(f"opportunity decaying — {decay*100:.0f}% of value remaining before expiry")
 
@@ -194,4 +213,6 @@ def score_opportunity(
         suppress_reason=suppress_reason,
         bypass_fatigue=bypass_fatigue,
         suppression_key=trigger.suppression_key,
+        recommended_action=cat_policy.recommended_action,
+        recommended_cta=cat_policy.recommended_cta,
     )

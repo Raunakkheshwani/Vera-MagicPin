@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """
 bot.py — Vera Engine Submission Module
 
 Exposes the canonical `compose(...)` function as required by challenge-brief.md §7.1.
 """
 import os
-from __future__ import annotations
 
 from typing import Any, Dict, Optional
 

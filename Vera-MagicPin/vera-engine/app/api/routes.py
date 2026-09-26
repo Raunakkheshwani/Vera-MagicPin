@@ -58,6 +58,13 @@ async def metadata() -> MetadataResponse:
     )
 
 
+@router.post("/v1/teardown")
+async def teardown():
+    context_store.clear()
+    engagement_store.clear()
+    return {"status": "ok", "message": "State wiped cleanly."}
+
+
 @router.post("/v1/context")
 async def push_context(request: Request):
     raw = await request.json()
@@ -81,15 +88,34 @@ async def push_context(request: Request):
 def _resolve_contexts(trigger_id: str):
     trigger_raw = context_store.get("trigger", trigger_id)
     if not trigger_raw:
+        for tid, tdata in context_store.all_of_scope("trigger").items():
+            if trigger_id in tid or tid in trigger_id:
+                trigger_raw = tdata
+                break
+    if not trigger_raw:
         return None
     trigger = TriggerContext.model_validate(trigger_raw)
 
     merchant_raw = context_store.get("merchant", trigger.merchant_id)
     if not merchant_raw:
+        m_scope = context_store.all_of_scope("merchant")
+        for mid, mdata in m_scope.items():
+            clean_t_mid = trigger.merchant_id.replace("_", "")
+            clean_mid = mid.replace("_", "")
+            if clean_t_mid in clean_mid or clean_mid in clean_t_mid:
+                merchant_raw = mdata
+                break
+    if not merchant_raw:
         return None
     merchant = MerchantContext.model_validate(merchant_raw)
 
     category_raw = context_store.get("category", merchant.category_slug)
+    if not category_raw:
+        c_scope = context_store.all_of_scope("category")
+        for cid, cdata in c_scope.items():
+            if merchant.category_slug in cid or cid in merchant.category_slug:
+                category_raw = cdata
+                break
     if not category_raw:
         return None
     category = CategoryContext.model_validate(category_raw)
@@ -97,6 +123,14 @@ def _resolve_contexts(trigger_id: str):
     customer = None
     if trigger.customer_id:
         customer_raw = context_store.get("customer", trigger.customer_id)
+        if not customer_raw:
+            cust_scope = context_store.all_of_scope("customer")
+            for cid, cdata in cust_scope.items():
+                clean_t_cid = trigger.customer_id.replace("_", "")
+                clean_cid = cid.replace("_", "")
+                if clean_t_cid in clean_cid or clean_cid in clean_t_cid:
+                    customer_raw = cdata
+                    break
         if customer_raw:
             customer = CustomerContext.model_validate(customer_raw)
 
@@ -139,6 +173,26 @@ async def tick(body: TickRequest) -> TickResponse:
 
         attempt_number = engagement_store.bump_attempt(opp.merchant_id, opp.family)
         hint = build_evolution_hint(attempt_number, twin)
+
+        try:
+            from app.engine.trace import DecisionTrace
+            DecisionTrace(
+                trigger_id=opp.trigger_id,
+                merchant_id=opp.merchant_id,
+                category_slug=category.slug,
+                family=opp.family,
+                relevance=opp.value,
+                business_impact=opp.value,
+                evidence_strength=1.0 if opp.evidence else 0.5,
+                counterfactual_loss=opp.value,
+                decision="SEND",
+                action_name=action_name,
+                cta_type=cta_type,
+                suppress_reason=opp.suppress_reason,
+                why_now=opp.why_now,
+            ).log()
+        except Exception:
+            pass
 
         body_text = compose_body(
             merchant_name=merchant.identity.name,

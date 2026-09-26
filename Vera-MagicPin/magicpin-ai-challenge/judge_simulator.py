@@ -634,6 +634,7 @@ class JudgeSimulator:
         return success
 
     def _warmup(self) -> bool:
+        self.client._request("POST", "/v1/teardown")
         print_section("WARMUP")
 
         data, err, lat = self.client.healthz()

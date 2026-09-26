@@ -1,6 +1,6 @@
 """
-Next Best Action policy — decides the BUSINESS action before any LLM
-touches it.
+Next Best Action policy — decides the BUSINESS action before any LLM touches it.
+Supports Category-Policy-driven actions and CTAs dynamically.
 """
 
 from __future__ import annotations
@@ -24,4 +24,10 @@ FAMILY_ACTION = {
 
 
 def next_best_action(opp: Opportunity) -> Tuple[str, str, str]:
-    return FAMILY_ACTION.get(opp.family, FAMILY_ACTION["generic"])
+    send_as = "merchant_on_behalf" if (opp.customer_id and opp.family in ("customer_recall", "win_back")) else "vera"
+
+    if opp.recommended_action and opp.recommended_cta:
+        return opp.recommended_action, opp.recommended_cta, send_as
+
+    default_action, default_cta, _ = FAMILY_ACTION.get(opp.family, FAMILY_ACTION["generic"])
+    return default_action, default_cta, send_as
