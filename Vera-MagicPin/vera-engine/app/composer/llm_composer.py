@@ -70,19 +70,23 @@ Action to lead toward: {action_name}"""
 
 
 def _call_gemini(api_key: str, model_name: str, user_prompt: str) -> Optional[str]:
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
-        full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
-        body = json.dumps({
-            "contents": [{"parts": [{"text": full_prompt}]}],
-            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 300}
-        }).encode("utf-8")
-        req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
-        with urlrequest.urlopen(req, timeout=8.0) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-            return data["candidates"][0]["content"]["parts"][0]["text"].strip()
-    except Exception:
-        return None
+    import time
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    full_prompt = f"{SYSTEM_PROMPT}\n\n{user_prompt}"
+    body = json.dumps({
+        "contents": [{"parts": [{"text": full_prompt}]}],
+        "generationConfig": {"temperature": 0.0, "maxOutputTokens": 300}
+    }).encode("utf-8")
+    
+    for attempt in range(3):
+        try:
+            req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
+            with urlrequest.urlopen(req, timeout=15.0) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+        except Exception:
+            time.sleep(0.5 * (attempt + 1))
+    return None
 
 
 def _call_groq(api_key: str, model_name: str, user_prompt: str) -> Optional[str]:
@@ -95,7 +99,7 @@ def _call_groq(api_key: str, model_name: str, user_prompt: str) -> Optional[str]
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.4,
+            temperature=0.0,
             max_tokens=200,
         )
         return resp.choices[0].message.content.strip()

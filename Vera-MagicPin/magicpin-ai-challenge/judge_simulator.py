@@ -233,10 +233,18 @@ class GeminiProvider(LLMProvider):
         }).encode("utf-8")
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
-        resp = urlrequest.urlopen(req, timeout=TIMEOUT_LLM)
-        data = json.loads(resp.read().decode("utf-8"))
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        
+        last_err = None
+        for attempt in range(3):
+            try:
+                req = urlrequest.Request(url, data=body, headers={"Content-Type": "application/json"})
+                resp = urlrequest.urlopen(req, timeout=30)
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                last_err = e
+                time.sleep(1.0 * (attempt + 1))
+        raise last_err
 
 
 class DeepSeekProvider(LLMProvider):
