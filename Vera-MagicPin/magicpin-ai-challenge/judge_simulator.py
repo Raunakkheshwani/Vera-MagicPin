@@ -41,7 +41,7 @@ def _load_env_key() -> str:
 BOT_URL = os.getenv("BOT_URL", "http://localhost:8000")
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "gemini")
 LLM_API_KEY = os.getenv("GEMINI_API_KEY", os.getenv("GROQ_API_KEY", os.getenv("LLM_API_KEY", ""))) or _load_env_key()
-LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash-lite")
+LLM_MODEL = os.getenv("LLM_MODEL", "gemini-3.5-flash")
 
 # For Ollama only: local server URL
 OLLAMA_URL = "http://localhost:11434"
@@ -220,7 +220,7 @@ class AnthropicProvider(LLMProvider):
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str, model: str = ""):
         self.api_key = api_key
-        self.model = model or "gemini-3.5-flash-lite"
+        self.model = model or "gemini-3.5-flash"
 
     def name(self) -> str:
         return f"Gemini ({self.model})"
@@ -229,7 +229,7 @@ class GeminiProvider(LLMProvider):
         full_prompt = f"{system}\n\n{prompt}" if system else prompt
         body = json.dumps({
             "contents": [{"parts": [{"text": full_prompt}]}],
-            "generationConfig": {"temperature": 0.2, "maxOutputTokens": 1500}
+            "generationConfig": {"temperature": 0.0, "maxOutputTokens": 1500}
         }).encode("utf-8")
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
@@ -549,25 +549,34 @@ Score each dimension 0-10 with clear reasoning. Be STRICT."""
             return self._fallback_score(action)
 
     def _parse_response(self, response: str, action: Dict) -> ScoreResult:
-        """Parse LLM JSON response."""
+        """Parse LLM JSON response safely."""
         match = re.search(r'\{[\s\S]*\}', response)
         if not match:
             return self._fallback_score(action)
 
+        def _safe_int(val, default=5) -> int:
+            if isinstance(val, (int, float)):
+                return int(val)
+            if isinstance(val, str):
+                m = re.search(r'\b(10|[0-9])\b', val)
+                if m:
+                    return int(m.group(1))
+            return default
+
         try:
             data = json.loads(match.group())
             result = ScoreResult(
-                specificity=min(10, max(0, int(data.get("specificity", 5)))),
-                specificity_reason=data.get("specificity_reason", ""),
-                category_fit=min(10, max(0, int(data.get("category_fit", 5)))),
-                category_fit_reason=data.get("category_fit_reason", ""),
-                merchant_fit=min(10, max(0, int(data.get("merchant_fit", 5)))),
-                merchant_fit_reason=data.get("merchant_fit_reason", ""),
-                decision_quality=min(10, max(0, int(data.get("decision_quality", data.get("trigger_relevance", 5))))),
-                decision_quality_reason=data.get("decision_quality_reason", data.get("trigger_relevance_reason", "")),
-                engagement_compulsion=min(10, max(0, int(data.get("engagement_compulsion", 5)))),
-                engagement_reason=data.get("engagement_reason", ""),
-                hint=data.get("hint", "")
+                specificity=min(10, max(0, _safe_int(data.get("specificity"), 5))),
+                specificity_reason=str(data.get("specificity_reason", "")),
+                category_fit=min(10, max(0, _safe_int(data.get("category_fit"), 5))),
+                category_fit_reason=str(data.get("category_fit_reason", "")),
+                merchant_fit=min(10, max(0, _safe_int(data.get("merchant_fit"), 5))),
+                merchant_fit_reason=str(data.get("merchant_fit_reason", "")),
+                decision_quality=min(10, max(0, _safe_int(data.get("decision_quality", data.get("trigger_relevance")), 5))),
+                decision_quality_reason=str(data.get("decision_quality_reason", data.get("trigger_relevance_reason", ""))),
+                engagement_compulsion=min(10, max(0, _safe_int(data.get("engagement_compulsion"), 5))),
+                engagement_reason=str(data.get("engagement_reason", "")),
+                hint=str(data.get("hint", ""))
             )
             return result
         except Exception as e:
