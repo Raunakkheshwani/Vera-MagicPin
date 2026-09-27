@@ -50,26 +50,26 @@ This principle separates **decision-making** from **language generation**, allow
 
 ```mermaid
 flowchart TD
-    A[Category Context] --> O[Opportunity Engine]
-    B[Merchant Context] --> O
-    C[Customer Context] --> O
-    D[Trigger Context] --> O
+    A["Category Context"] --> O["Opportunity Engine"]
+    B["Merchant Context"] --> O
+    C["Customer Context"] --> O
+    D["Trigger Context"] --> O
 
-    O --> E[Why-Now / Evidence]
-    E --> F[Attention & Fatigue]
-    F --> G[Trigger Arbitration]
-    G --> H[Opportunity Decay]
-    H --> I[Conversation State]
-    I --> J[Next Best Action]
-    J --> K[Evidence-First Composer]
-    K --> L[Validated Action]
+    O --> E["Why-Now & Evidence"]
+    E --> F["Attention & Fatigue"]
+    F --> G["Trigger Arbitration"]
+    G --> H["Opportunity Decay"]
+    H --> I["Conversation State"]
+    I --> J["Next Best Action"]
+    J --> K["Evidence-First Composer"]
+    K --> L["Validated Action"]
 
-    L --> M[FastAPI API Layer]
-    M --> N[/v1/context]
-    M --> T[/v1/tick]
-    M --> R[/v1/reply]
-    M --> HZ[/v1/healthz]
-    M --> MD[/v1/metadata]
+    L --> M["FastAPI API Layer"]
+    M --> N["/v1/context"]
+    M --> T["/v1/tick"]
+    M --> R["/v1/reply"]
+    M --> HZ["/v1/healthz"]
+    M --> MD["/v1/metadata"]
 ```
 
 ### Decision Pipeline Flow
